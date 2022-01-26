@@ -1890,6 +1890,8 @@ version = "0.1.0"
 dependencies = [
  "indicatif",
  "owo-colors",
+ "serde",
+ "serde_json",
  "smol",
  "surf",
 ]
