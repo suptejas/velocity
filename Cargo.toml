@@ -7,3 +7,6 @@ edition = "2021"
 
 [dependencies]
 owo-colors = "3.2.0"
+smol = "1.2.5"
+indicatif = "0.16.2"
+surf = { version = "*", features = ["h1-client-rustls"] }
