@@ -79,6 +79,11 @@ pub async fn monitor(
                     MonitorType::Latency => {
                         let start = Instant::now();
 
+                        println!(
+                            "https://api.instatus.com/v1/{}/metrics/{}",
+                            page.id, metrics[name]
+                        );
+
                         client
                             .post(format!(
                                 "https://api.instatus.com/v1/{}/metrics/{}",
@@ -119,12 +124,17 @@ pub async fn monitor(
                 let spacing = " ".repeat(MAX_MS_TIME as usize - latency.to_string().len() as usize);
 
                 println!(
-                    "{}  {}{}❌  {} is down",
+                    "{}  {}{}❌  {} is down, creating incident",
                     time.format("%H:%M:%S").bright_yellow(),
                     format!("{} ms", latency).bright_black(),
                     spacing,
                     name.bright_green()
                 );
+
+                client
+                    .post(format!("https://api.instatus.com/v1/{}/incidents", page.id))
+                    .header("Authorization", format!("Bearer {}", config.api_key))
+                    .body_json();
 
                 // TODO: report downtime
                 // using the Instatus API
