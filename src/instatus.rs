@@ -16,7 +16,9 @@ pub async fn monitor(client: Client, config: Config) {
 
             if client
                 .get(endpoint)
-                .header("Cache-Control", "no-cache")
+                .header("Cache-Control", "no-cache, no-store, must-revalidate")
+                .header("Pragma", "no-cache")
+                .header("Expires", "0")
                 .send()
                 .await
                 .unwrap()
