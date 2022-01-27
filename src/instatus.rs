@@ -1,24 +1,48 @@
 use crate::config::Config;
+use chrono::Local;
 use owo_colors::OwoColorize;
-use std::{thread::sleep, time::Duration};
+use std::{
+    thread::sleep,
+    time::{Duration, Instant},
+};
 use surf::Client;
 
-pub async fn serve(client: Client, config: Config) {
-    println!("🚚 Serving requests...");
+pub async fn monitor(client: Client, config: Config) {
+    println!("🔍 Monitoring requests...");
 
     loop {
         for (name, endpoint) in config.endpoints.iter() {
+            let start = Instant::now();
+
             if client
                 .get(endpoint)
+                .header("Cache-Control", "no-cache")
                 .send()
                 .await
                 .unwrap()
                 .status()
                 .is_success()
             {
-                println!("✅ {} is up", name.bright_green());
+                let time = Local::now();
+
+                println!(
+                    "{} {} ✅ {} is up",
+                    time.format("%H:%M:%S").bright_yellow(),
+                    format!("{:.2} ms", start.elapsed().as_millis()).bright_black(),
+                    name.bright_green()
+                );
             } else {
-                println!("🚫 {} is down", name.bright_red());
+                let time = Local::now();
+
+                println!(
+                    "{} {} ❌ {} is down",
+                    time.format("%H:%M:%S").bright_yellow(),
+                    format!("{:.2} ms", start.elapsed().as_millis()).bright_red(),
+                    name.bright_red()
+                );
+
+                // TODO: report downtime
+                // using the Instatus API
             };
         }
 

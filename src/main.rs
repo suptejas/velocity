@@ -34,6 +34,6 @@ fn main() {
                 std::process::exit(1);
             });
 
-        instatus::serve(client, config).await;
+        instatus::monitor(client, config).await;
     });
 }
