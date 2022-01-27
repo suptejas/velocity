@@ -3,10 +3,13 @@ use chrono::Local;
 use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
 use std::{
+    collections::HashMap,
     thread::sleep,
     time::{Duration, Instant},
 };
 use surf::Client;
+
+const MAX_MS_TIME: u8 = 5;
 
 /// A status page object from the Instatus API
 #[derive(Serialize, Deserialize, Debug)]
@@ -17,7 +20,27 @@ pub struct StatusPage {
     pub name: String,
 }
 
-pub async fn monitor(client: Client, config: Config) {
+/// A metric object from the Instatus API
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Metric {
+    /// ID of the metric
+    pub id: String,
+    /// Name of the metric
+    pub name: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct LatencyPost {
+    timestamp: u64,
+    value: u128,
+}
+
+pub async fn monitor(
+    page: StatusPage,
+    metrics: HashMap<String, String>,
+    client: Client,
+    config: Config,
+) {
     println!("🔍 Monitoring requests...");
 
     loop {
@@ -35,39 +58,72 @@ pub async fn monitor(client: Client, config: Config) {
                 .status()
                 .is_success()
             {
+                // latency for the request
+                let latency = start.elapsed().as_millis();
+                // current time
                 let time = Local::now();
+
+                // calculate spacing
+                let spacing = " ".repeat(MAX_MS_TIME as usize - latency.to_string().len() as usize);
 
                 match monitor.type_ {
                     MonitorType::Uptime => {
                         println!(
-                            "{} {} ✅ {} is up",
+                            "{}  {}{}✅  {} is up",
                             time.format("%H:%M:%S").bright_yellow(),
-                            format!("{:.2} ms", start.elapsed().as_millis()).bright_black(),
+                            format!("{} ms", latency).bright_black(),
+                            spacing,
                             name.bright_green()
                         );
                     }
                     MonitorType::Latency => {
-                        // client.post("https://api.instatus.com")
+                        let start = Instant::now();
 
-                        // first latency should be the time taken to log the latency
-                        // second latency should be the actual latency
+                        client
+                            .post(format!(
+                                "https://api.instatus.com/v1/{}/metrics/{}",
+                                page.id, metrics[name]
+                            ))
+                            .header("Authorization", format!("Bearer {}", config.api_key))
+                            .body_json(&LatencyPost {
+                                timestamp: time.timestamp() as u64,
+                                value: latency,
+                            })
+                            .unwrap()
+                            .await
+                            .unwrap()
+                            .body_string()
+                            .await
+                            .unwrap();
+
                         println!(
-                            "{} {} ✅ {} latency updated to {}",
+                            "{}  {}{}📡  {} latency updated to {}",
                             time.format("%H:%M:%S").bright_yellow(),
-                            format!("{:.2} ms", start.elapsed().as_millis()).bright_black(),
+                            format!("{} ms", start.elapsed().as_millis()).bright_black(),
+                            " ".repeat(
+                                MAX_MS_TIME as usize
+                                    - start.elapsed().as_millis().to_string().len() as usize
+                            ),
                             name.bright_green(),
-                            format!("{:.4} ms", start.elapsed().as_millis()).bright_black(),
+                            format!("{} ms", latency).bright_black(),
                         );
                     }
                 }
             } else {
+                // latency for the request
+                let latency = start.elapsed().as_millis();
+                // current time
                 let time = Local::now();
 
+                // calculate spacing
+                let spacing = " ".repeat(MAX_MS_TIME as usize - latency.to_string().len() as usize);
+
                 println!(
-                    "{} {} ❌ {} is down",
+                    "{}  {}{}❌  {} is down",
                     time.format("%H:%M:%S").bright_yellow(),
-                    format!("{:.2} ms", start.elapsed().as_millis()).bright_red(),
-                    name.bright_red()
+                    format!("{} ms", latency).bright_black(),
+                    spacing,
+                    name.bright_green()
                 );
 
                 // TODO: report downtime

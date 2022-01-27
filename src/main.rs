@@ -19,7 +19,7 @@ fn main() {
 
         println!("✈️  Running {} checks...", "pre-flight".bright_cyan());
 
-        let page = net::pre_flight_network_test(&config).await;
+        let (metrics, page) = net::pre_flight_network_test(&config).await;
 
         println!("🌊 Spinning up network client");
 
@@ -34,6 +34,6 @@ fn main() {
                 std::process::exit(1);
             });
 
-        instatus::monitor(client, config).await;
+        instatus::monitor(page, metrics, client, config).await;
     });
 }

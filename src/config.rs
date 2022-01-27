@@ -28,7 +28,6 @@ pub struct Monitor {
     pub url: String,
     #[serde(rename = "type")]
     pub type_: MonitorType,
-    pub metric_id: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
