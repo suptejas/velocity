@@ -50,5 +50,5 @@ pub async fn pre_flight_network_test() {
 
     bar.inc(1);
 
-    bar.finish_with_message(format!("✅  All checks passed"));
+    bar.finish_with_message("✅  All checks passed");
 }

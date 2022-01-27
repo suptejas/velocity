@@ -10,13 +10,27 @@ pub struct Config {
     /// your key to the instatus api
     pub api_key: String,
     /// endpoints to monitor
-    pub endpoints: HashMap<String, String>,
+    pub monitors: HashMap<String, Monitor>,
     /// frequency to monitor endpoints, in seconds
     /// your endpoints will be pinged every `frequency` seconds
     pub frequency: u64,
     /// maximum connection timeout for all endpoints
     /// default: 10s
     pub max_connection_timeout: Option<u8>,
+}
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct Monitor {
+    pub url: String,
+    #[serde(rename = "type")]
+    pub type_: MonitorType,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub enum MonitorType {
+    Uptime,
+    Latency,
 }
 
 impl Config {

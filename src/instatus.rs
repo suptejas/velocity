@@ -11,11 +11,11 @@ pub async fn monitor(client: Client, config: Config) {
     println!("🔍 Monitoring requests...");
 
     loop {
-        for (name, endpoint) in config.endpoints.iter() {
+        for (name, monitor) in config.monitors.iter() {
             let start = Instant::now();
 
             if client
-                .get(endpoint)
+                .get(&monitor.url)
                 .header("Cache-Control", "no-cache, no-store, must-revalidate")
                 .header("Pragma", "no-cache")
                 .header("Expires", "0")
