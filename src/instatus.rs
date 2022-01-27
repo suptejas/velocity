@@ -1,11 +1,21 @@
-use crate::config::Config;
+use crate::config::{Config, MonitorType};
 use chrono::Local;
 use owo_colors::OwoColorize;
+use serde::{Deserialize, Serialize};
 use std::{
     thread::sleep,
     time::{Duration, Instant},
 };
 use surf::Client;
+
+/// A status page object from the Instatus API
+#[derive(Serialize, Deserialize, Debug)]
+pub struct StatusPage {
+    /// ID of the status page
+    pub id: String,
+    /// Name of the status page
+    pub name: String,
+}
 
 pub async fn monitor(client: Client, config: Config) {
     println!("🔍 Monitoring requests...");
@@ -27,12 +37,29 @@ pub async fn monitor(client: Client, config: Config) {
             {
                 let time = Local::now();
 
-                println!(
-                    "{} {} ✅ {} is up",
-                    time.format("%H:%M:%S").bright_yellow(),
-                    format!("{:.2} ms", start.elapsed().as_millis()).bright_black(),
-                    name.bright_green()
-                );
+                match monitor.type_ {
+                    MonitorType::Uptime => {
+                        println!(
+                            "{} {} ✅ {} is up",
+                            time.format("%H:%M:%S").bright_yellow(),
+                            format!("{:.2} ms", start.elapsed().as_millis()).bright_black(),
+                            name.bright_green()
+                        );
+                    }
+                    MonitorType::Latency => {
+                        // client.post("https://api.instatus.com")
+
+                        // first latency should be the time taken to log the latency
+                        // second latency should be the actual latency
+                        println!(
+                            "{} {} ✅ {} latency updated to {}",
+                            time.format("%H:%M:%S").bright_yellow(),
+                            format!("{:.2} ms", start.elapsed().as_millis()).bright_black(),
+                            name.bright_green(),
+                            format!("{:.4} ms", start.elapsed().as_millis()).bright_black(),
+                        );
+                    }
+                }
             } else {
                 let time = Local::now();
 

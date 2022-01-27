@@ -7,6 +7,10 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Config {
+    /// name of the status page
+    /// you can find this at the home page of instatus.com
+    /// example: Hydralite, Discord, Apple
+    pub name: String,
     /// your key to the instatus api
     pub api_key: String,
     /// endpoints to monitor
@@ -24,6 +28,7 @@ pub struct Monitor {
     pub url: String,
     #[serde(rename = "type")]
     pub type_: MonitorType,
+    pub metric_id: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

@@ -10,16 +10,16 @@ pub mod net;
 
 fn main() {
     smol::block_on(async {
-        println!("✈️  Running {} checks...", "pre-flight".bright_cyan());
-
-        net::pre_flight_network_test().await;
-
         println!(
             "📖 Reading configuration variables from {}",
             "velocity.json".bright_magenta()
         );
 
         let config = Config::from_file("velocity.json");
+
+        println!("✈️  Running {} checks...", "pre-flight".bright_cyan());
+
+        let page = net::pre_flight_network_test(&config).await;
 
         println!("🌊 Spinning up network client");
 
