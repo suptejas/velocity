@@ -35,15 +35,59 @@ pub struct LatencyPost {
     value: u128,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ComponentStatus {
+    id: String,
+    status: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct IncidentPost {
+    name: String,
+    message: String,
+    components: Vec<String>,
+    started: String,
+    status: String,
+    notify: bool,
+    statuses: Vec<ComponentStatus>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ComponentResponse {
+    id: String,
+    name: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Incident {
+    id: String,
+}
+
 pub async fn monitor(
     page: StatusPage,
+    components: Vec<ComponentResponse>,
     metrics: HashMap<String, String>,
     client: Client,
     config: Config,
 ) {
     println!("🔍 Monitoring requests...");
 
+    let mut active_incidents = vec![];
+
     loop {
+        active_incidents.clear();
+
+        let incidents = client
+            .get(format!("https://api.instatus.com/v1/{}/incidents", page.id))
+            .header("Authorization", format!("Bearer {}", config.api_key))
+            .recv_json::<Vec<Incident>>()
+            .await
+            .unwrap();
+
+        for incident in incidents {
+            active_incidents.push(incident.id);
+        }
+
         for (name, monitor) in config.monitors.iter() {
             let start = Instant::now();
 
@@ -75,14 +119,11 @@ pub async fn monitor(
                             spacing,
                             name.bright_green()
                         );
+
+                        // TODO: if this is in the list of active incidents, change it to resolved again
                     }
                     MonitorType::Latency => {
                         let start = Instant::now();
-
-                        println!(
-                            "https://api.instatus.com/v1/{}/metrics/{}",
-                            page.id, metrics[name]
-                        );
 
                         client
                             .post(format!(
@@ -123,21 +164,91 @@ pub async fn monitor(
                 // calculate spacing
                 let spacing = " ".repeat(MAX_MS_TIME as usize - latency.to_string().len() as usize);
 
-                println!(
-                    "{}  {}{}❌  {} is down, creating incident",
-                    time.format("%H:%M:%S").bright_yellow(),
-                    format!("{} ms", latency).bright_black(),
-                    spacing,
-                    name.bright_green()
-                );
+                match monitor.type_ {
+                    MonitorType::Uptime => {
+                        println!(
+                            "{}  {}{}❌  {} is down, creating incident",
+                            time.format("%H:%M:%S").bright_yellow(),
+                            format!("{} ms", latency).bright_black(),
+                            spacing,
+                            name.bright_red()
+                        );
 
-                client
-                    .post(format!("https://api.instatus.com/v1/{}/incidents", page.id))
-                    .header("Authorization", format!("Bearer {}", config.api_key))
-                    .body_json();
+                        let mut impacted_components = vec![];
 
-                // TODO: report downtime
-                // using the Instatus API
+                        for component in &components {
+                            if component.name == *name {
+                                impacted_components.push(component.id.to_owned());
+                            }
+                        }
+
+                        let mut impacted_components_statuses = vec![];
+
+                        for component in &impacted_components {
+                            impacted_components_statuses.push(ComponentStatus {
+                                id: component.clone(),
+                                status: "MAJOROUTAGE".to_string(),
+                            });
+                        }
+
+                        let start = Instant::now();
+
+                        for incident in active_incidents {}
+
+                        let res = client
+                            .post(format!("https://api.instatus.com/v1/{}/incidents", page.id))
+                            .header("Authorization", format!("Bearer {}", config.api_key))
+                            .body_json(&IncidentPost {
+                                name: format!("{} Issues", name),
+                                message: format!("We've identified issues with the {}. Engineers have been notified.", name),
+                                components: impacted_components,
+                                started: time.format("%Y-%m-%d %H:%M:%S.%3f").to_string(),
+                                status: String::from("IDENTIFIED"),
+                                notify: true,
+                                statuses: impacted_components_statuses,
+                            })
+                            .unwrap()
+                            .send()
+                            .await
+                            .unwrap_or_else(|e| {
+                                eprintln!("{e}");
+                                std::process::exit(1);
+                            });
+
+                        if res.status().is_success() {
+                            println!(
+                                "{}  {}{}🎫  {} successfully created incident",
+                                time.format("%H:%M:%S").bright_yellow(),
+                                format!("{} ms", start.elapsed().as_millis()).bright_black(),
+                                " ".repeat(
+                                    MAX_MS_TIME as usize
+                                        - start.elapsed().as_millis().to_string().len() as usize
+                                ),
+                                name.bright_green()
+                            );
+                        } else {
+                            println!(
+                                "{}  {}{}❌  {} failed to create incident",
+                                time.format("%H:%M:%S").bright_yellow(),
+                                format!("{} ms", start.elapsed().as_millis()).bright_black(),
+                                " ".repeat(
+                                    MAX_MS_TIME as usize
+                                        - start.elapsed().as_millis().to_string().len() as usize
+                                ),
+                                name.bright_red()
+                            );
+                        }
+                    }
+                    MonitorType::Latency => {
+                        println!(
+                            "{}  {}{}⚠️   Unable to measure latency for {}",
+                            time.format("%H:%M:%S").bright_yellow(),
+                            format!("{} ms", latency).bright_black(),
+                            spacing,
+                            name.bright_red()
+                        );
+                    }
+                }
             };
         }
 

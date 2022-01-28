@@ -5,10 +5,12 @@ use owo_colors::OwoColorize;
 
 use crate::{
     config::{Config, MonitorType},
-    instatus::{Metric, StatusPage},
+    instatus::{ComponentResponse, Metric, StatusPage},
 };
 
-pub async fn pre_flight_network_test(config: &Config) -> (HashMap<String, String>, StatusPage) {
+pub async fn pre_flight_network_test(
+    config: &Config,
+) -> (HashMap<String, String>, Vec<ComponentResponse>, StatusPage) {
     let bar = ProgressBar::new(2).with_style(
         ProgressStyle::default_bar()
             .template("{msg}")
@@ -79,9 +81,18 @@ pub async fn pre_flight_network_test(config: &Config) -> (HashMap<String, String
             }
         }
 
+        let components = surf::get(format!(
+            "https://api.instatus.com/v1/{}/components",
+            status_page.id
+        ))
+        .header("Authorization", format!("Bearer {}", config.api_key))
+        .recv_json::<Vec<ComponentResponse>>()
+        .await
+        .unwrap();
+
         bar.finish_with_message("✅  All checks passed");
 
-        (metrics, status_page)
+        (metrics, components, status_page)
     } else {
         bar.abandon_with_message(format!(
             "❌  Could not find relevant status page with name {}",
