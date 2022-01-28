@@ -19,7 +19,7 @@ pub struct Config {
     /// your endpoints will be pinged every `frequency` seconds
     pub frequency: u64,
     /// maximum connection timeout for all endpoints
-    /// default: 10s
+    /// default: 30s
     pub max_connection_timeout: Option<u8>,
 }
 #[derive(Serialize, Deserialize, Debug)]
@@ -51,7 +51,7 @@ impl Config {
         let mut config = serde_json::from_str::<Config>(&contents).unwrap();
 
         if config.max_connection_timeout.is_none() {
-            config.max_connection_timeout = Some(10);
+            config.max_connection_timeout = Some(20);
         }
 
         config

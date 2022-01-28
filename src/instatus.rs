@@ -272,7 +272,7 @@ pub async fn monitor(
                             time.format("%H:%M:%S").bright_yellow(),
                             format!("{} ms", latency).bright_black(),
                             spacing,
-                            name.bright_red()
+                            name.bright_yellow()
                         );
                     }
                 }
