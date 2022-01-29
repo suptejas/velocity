@@ -20,8 +20,13 @@ pub struct Config {
     pub frequency: u64,
     /// maximum connection timeout for all endpoints
     /// default: 30s
-    pub max_connection_timeout: Option<u8>,
+    pub max_connection_timeout: Option<u64>,
+    /// incident monitoring time, in number of requests
+    /// when the number of requests specified above have been satisfied, we will mark the incident as resolved
+    /// default: 60
+    pub incident_monitoring_time: Option<u64>,
 }
+
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Monitor {
@@ -51,7 +56,11 @@ impl Config {
         let mut config = serde_json::from_str::<Config>(&contents).unwrap();
 
         if config.max_connection_timeout.is_none() {
-            config.max_connection_timeout = Some(20);
+            config.max_connection_timeout = Some(30);
+        }
+
+        if config.incident_monitoring_time.is_none() {
+            config.incident_monitoring_time = Some(60);
         }
 
         config

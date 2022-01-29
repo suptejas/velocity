@@ -98,15 +98,15 @@ pub async fn pre_flight_network_test(
             "api.instatus.com".to_string().bright_green().underline()
         ));
 
-        let metrics = fetch_metrics(
-            metric_loggers,
-            &status_page.id,
-            &config.api_key,
-            bar.clone(),
-        )
-        .await;
-
-        let components = fetch_components(&status_page.id, &config.api_key).await;
+        let (metrics, components) = tokio::join!(
+            fetch_metrics(
+                metric_loggers,
+                &status_page.id,
+                &config.api_key,
+                bar.clone(),
+            ),
+            fetch_components(&status_page.id, &config.api_key),
+        );
 
         bar.finish_with_message("✅  All checks passed");
 

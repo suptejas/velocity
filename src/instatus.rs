@@ -53,16 +53,76 @@ pub struct IncidentPost {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+pub struct IncidentUpdate {
+    message: String,
+    components: Vec<String>,
+    started: String,
+    status: String,
+    notify: bool,
+    statuses: Vec<ComponentStatus>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ComponentResponse {
     id: String,
     name: String,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Incident {
     id: String,
+    started: String,
     status: String,
     components: Vec<ComponentResponse>,
+}
+
+pub async fn set_incident_status(
+    client: Client,
+    page_id: String,
+    incident: Incident,
+    status: String,
+) {
+    match status.as_str() {
+        "MONITORING" => {
+            // todo: mark the incident as monitoring
+            client
+                .post(
+                    format!(
+                        "https://api.instatus.com/v1/{}/incidents/{}/incident-updates",
+                        page_id, incident.id
+                    )
+                    .as_str(),
+                )
+                .body_json(&IncidentUpdate {
+                    message: "A fix has been implemented. We are monitoring the service closely."
+                        .to_string(),
+                    components: incident
+                        .components
+                        .iter()
+                        .map(|v| v.id.clone())
+                        .collect::<Vec<String>>(),
+                    started: incident.started,
+                    status: status,
+                    notify: true,
+                    statuses: incident
+                        .components
+                        .iter()
+                        .map(|v| ComponentStatus {
+                            id: v.id.clone(),
+                            status: "OPERATIONAL".to_string(),
+                        })
+                        .collect::<Vec<ComponentStatus>>(),
+                })
+                .unwrap()
+                .await
+                .unwrap();
+        }
+        "RESOLVED" => {
+            // todo: mark the incident as resolved
+            // todo: mark the components as online
+        }
+        &_ => {}
+    }
 }
 
 pub async fn monitor(
@@ -74,7 +134,11 @@ pub async fn monitor(
 ) {
     println!("🔍 Monitoring requests...");
 
-    let mut active_incidents: HashMap<String, Vec<String>> = HashMap::new();
+    let mut active_incidents: Vec<Incident> = vec![];
+
+    let mut active_monitoring_incidents: Vec<Incident> = vec![];
+
+    let mut monitoring_elapsed: HashMap<String, u64> = HashMap::new();
 
     loop {
         active_incidents.clear();
@@ -92,14 +156,11 @@ pub async fn monitor(
             // an incident is still valid if the status is still one that is not resolved
             if incident.status == "IDENTIFIED" || incident.status == "MONITORING" {
                 // if the status is still active
-                active_incidents.insert(
-                    incident.id,
-                    incident
-                        .components
-                        .iter()
-                        .map(|v| v.name.clone())
-                        .collect::<Vec<String>>(),
-                );
+                active_incidents.push(incident.clone());
+
+                if incident.status == "MONITORING" {
+                    active_monitoring_incidents.push(incident.clone());
+                }
             }
         }
 
@@ -125,50 +186,87 @@ pub async fn monitor(
                 // calculate spacing
                 let spacing = " ".repeat(MAX_MS_TIME as usize - latency.to_string().len() as usize);
 
-                match monitor.type_ {
-                    MonitorType::Uptime => {
-                        println!(
-                            "{}  {}{}✅  {} is up",
-                            time.format("%H:%M:%S").bright_yellow(),
-                            format!("{} ms", latency).bright_black(),
-                            spacing,
-                            name.bright_green()
-                        );
+                if let MonitorType::Uptime = monitor.type_ {
+                    println!(
+                        "{}  {}{}✅  {} is up",
+                        time.format("%H:%M:%S").bright_yellow(),
+                        format!("{} ms", latency).bright_black(),
+                        spacing,
+                        name.bright_green()
+                    );
 
-                        // TODO: if this is in the list of active incidents, change it to resolved again
+                    // TODO: if this is in the list of active incidents and the monitoring time has elapsed, change it to resolved again
+                    for incident in active_incidents.iter() {
+                        if incident.status == "MONITORING" {
+                            if monitoring_elapsed[&incident.id] == 0 {
+                                set_incident_status(
+                                    client.clone(),
+                                    page.id.clone(),
+                                    incident.clone(),
+                                    "RESOLVED".to_string(),
+                                )
+                                .await;
+
+                                println!("✅  {} marked as resolved", name.bright_green());
+                            } else {
+                                *monitoring_elapsed.get_mut(&incident.id).unwrap() -= 1;
+                            }
+                        } else {
+                            // if the status is not monitoring, then change this incident to MONITORING
+                            if incident.status.as_str() == "IDENTIFIED" {
+                                monitoring_elapsed.insert(
+                                    incident.id.clone(),
+                                    config.incident_monitoring_time.unwrap(),
+                                );
+
+                                set_incident_status(
+                                    client.clone(),
+                                    page.id.clone(),
+                                    incident.clone(),
+                                    "MONITORING".to_string(),
+                                )
+                                .await;
+                            }
+                        }
+                        // otherwise, if it is MONITORING and it's passed it's monitoring time, move it to resolved
+                        // while marking things as resolved, ensure that all the components related to it are marked as resolved as well
                     }
-                    MonitorType::Latency => {
-                        let start = Instant::now();
+                } else {
+                    let start = Instant::now();
 
-                        client
-                            .post(format!(
-                                "https://api.instatus.com/v1/{}/metrics/{}",
-                                page.id, metrics[name]
-                            ))
-                            .header("Authorization", format!("Bearer {}", config.api_key))
-                            .body_json(&LatencyPost {
-                                timestamp: time.timestamp_millis() as u64,
-                                value: latency,
+                    client
+                        .post(format!(
+                            "https://api.instatus.com/v1/{}/metrics/{}",
+                            page.id,
+                            metrics.get(name).unwrap_or_else(|| {
+                                println!("Could not detect any metrics corresponding to {}", name,);
+
+                                std::process::exit(1);
                             })
-                            .unwrap()
-                            .await
-                            .unwrap()
-                            .body_string()
-                            .await
-                            .unwrap();
+                        ))
+                        .header("Authorization", format!("Bearer {}", config.api_key))
+                        .body_json(&LatencyPost {
+                            timestamp: time.timestamp_millis() as u64,
+                            value: latency,
+                        })
+                        .unwrap()
+                        .await
+                        .unwrap()
+                        .body_string()
+                        .await
+                        .unwrap();
 
-                        println!(
-                            "{}  {}{}📡  {} latency updated to {}",
-                            time.format("%H:%M:%S").bright_yellow(),
-                            format!("{} ms", start.elapsed().as_millis()).bright_black(),
-                            " ".repeat(
-                                MAX_MS_TIME as usize
-                                    - start.elapsed().as_millis().to_string().len() as usize
-                            ),
-                            name.bright_green(),
-                            format!("{} ms", latency).bright_black(),
-                        );
-                    }
+                    println!(
+                        "{}  {}{}📡  {} latency updated to {}",
+                        time.format("%H:%M:%S").bright_yellow(),
+                        format!("{} ms", start.elapsed().as_millis()).bright_black(),
+                        " ".repeat(
+                            MAX_MS_TIME as usize
+                                - start.elapsed().as_millis().to_string().len() as usize
+                        ),
+                        name.bright_green(),
+                        format!("{} ms", latency).bright_black(),
+                    );
                 }
             } else {
                 // latency for the request
@@ -195,7 +293,13 @@ pub async fn monitor(
                         // if there's already an incident with the same name, we can skip it
                         let mut create_report = true;
 
-                        for (_, components) in active_incidents.iter() {
+                        for incident in active_incidents.iter() {
+                            let components = incident
+                                .components
+                                .iter()
+                                .map(|v| v.name.clone())
+                                .collect::<Vec<String>>();
+
                             if components.contains(name) {
                                 create_report = false;
                             }
@@ -241,7 +345,7 @@ pub async fn monitor(
 
                             if res.status().is_success() {
                                 println!(
-                                    "{}  {}{}🎫  {} successfully created incident",
+                                    "{}  {}{}🎫  Successfully created incident for {} ",
                                     time.format("%H:%M:%S").bright_yellow(),
                                     format!("{} ms", start.elapsed().as_millis()).bright_black(),
                                     " ".repeat(
@@ -253,7 +357,7 @@ pub async fn monitor(
                                 );
                             } else {
                                 println!(
-                                    "{}  {}{}❌  {} failed to create incident",
+                                    "{}  {}{}❌  Failed to create incident for {} ",
                                     time.format("%H:%M:%S").bright_yellow(),
                                     format!("{} ms", start.elapsed().as_millis()).bright_black(),
                                     " ".repeat(
