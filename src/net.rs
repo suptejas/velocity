@@ -8,6 +8,44 @@ use crate::{
     instatus::{ComponentResponse, Metric, StatusPage},
 };
 
+pub async fn fetch_metrics(
+    metric_loggers: Vec<&String>,
+    page_id: &str,
+    api_key: &str,
+    bar: ProgressBar,
+) -> HashMap<String, String> {
+    let res: Vec<Metric> = surf::get(format!("https://api.instatus.com/v1/{}/metrics", page_id))
+        .header("Authorization", format!("Bearer {}", api_key))
+        .recv_json()
+        .await
+        .unwrap_or_else(|error| {
+            bar.abandon_with_message(format!("💥 could not connect to Instatus API: {}", error));
+
+            exit(1);
+        });
+
+    let mut metrics = HashMap::new();
+
+    for metric in res {
+        if metric_loggers.contains(&&metric.name) {
+            metrics.insert(metric.name, metric.id);
+        }
+    }
+
+    metrics
+}
+
+pub async fn fetch_components(page_id: &str, api_key: &str) -> Vec<ComponentResponse> {
+    surf::get(format!(
+        "https://api.instatus.com/v1/{}/components",
+        page_id
+    ))
+    .header("Authorization", format!("Bearer {}", api_key))
+    .recv_json::<Vec<ComponentResponse>>()
+    .await
+    .unwrap()
+}
+
 pub async fn pre_flight_network_test(
     config: &Config,
 ) -> (HashMap<String, String>, Vec<ComponentResponse>, StatusPage) {
@@ -60,35 +98,15 @@ pub async fn pre_flight_network_test(
             "api.instatus.com".to_string().bright_green().underline()
         ));
 
-        let res: Vec<Metric> = surf::get(format!(
-            "https://api.instatus.com/v1/{}/metrics",
-            status_page.id
-        ))
-        .header("Authorization", format!("Bearer {}", config.api_key))
-        .recv_json()
-        .await
-        .unwrap_or_else(|error| {
-            bar.abandon_with_message(format!("💥 could not connect to Instatus API: {}", error));
+        let metrics = fetch_metrics(
+            metric_loggers,
+            &status_page.id,
+            &config.api_key,
+            bar.clone(),
+        )
+        .await;
 
-            exit(1);
-        });
-
-        let mut metrics = HashMap::new();
-
-        for metric in res {
-            if metric_loggers.contains(&&metric.name) {
-                metrics.insert(metric.name, metric.id);
-            }
-        }
-
-        let components = surf::get(format!(
-            "https://api.instatus.com/v1/{}/components",
-            status_page.id
-        ))
-        .header("Authorization", format!("Bearer {}", config.api_key))
-        .recv_json::<Vec<ComponentResponse>>()
-        .await
-        .unwrap();
+        let components = fetch_components(&status_page.id, &config.api_key).await;
 
         bar.finish_with_message("✅  All checks passed");
 

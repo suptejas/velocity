@@ -1931,6 +1931,7 @@ name = "velocity"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "futures",
  "indicatif",
  "owo-colors",
  "serde",
