@@ -17,7 +17,7 @@ fn main() {
 
         let config = Config::from_file("velocity.json");
 
-        println!("✈️  Running {} checks...", "pre-flight".bright_cyan());
+        println!("✈️  Running {} setup...", "pre-flight".bright_cyan());
 
         let (metrics, components, page) = net::pre_flight_network_test(&config).await;
 
