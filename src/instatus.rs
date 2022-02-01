@@ -102,7 +102,7 @@ pub async fn set_incident_status(
                         .map(|v| v.id.clone())
                         .collect::<Vec<String>>(),
                     started: incident.started,
-                    status: status,
+                    status,
                     notify: true,
                     statuses: incident
                         .components
@@ -294,13 +294,12 @@ pub async fn monitor(
                         let mut create_report = true;
 
                         for incident in active_incidents.iter() {
-                            let components = incident
+                            if incident
                                 .components
                                 .iter()
                                 .map(|v| v.name.clone())
-                                .collect::<Vec<String>>();
-
-                            if components.contains(name) {
+                                .any(|x| x == *name)
+                            {
                                 create_report = false;
                             }
                         }
