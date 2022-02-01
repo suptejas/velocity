@@ -108,7 +108,7 @@ pub async fn pre_flight_network_test(
             fetch_components(&status_page.id, &config.api_key),
         );
 
-        bar.finish_with_message("✅  All checks passed");
+        bar.finish_with_message("✅ All checks passed");
 
         (metrics, components, status_page)
     } else {
