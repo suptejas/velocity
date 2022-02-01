@@ -19,7 +19,7 @@ fn main() {
 
         println!("✈️  Running {} setup...", "pre-flight".bright_cyan());
 
-        let (metrics, components, page) = net::pre_flight_network_test(&config).await;
+        let (metrics, components, page) = net::pre_flight_setup(&config).await;
 
         println!("🌊 Spinning up network client");
 

@@ -46,7 +46,7 @@ pub async fn fetch_components(page_id: &str, api_key: &str) -> Vec<ComponentResp
     .unwrap()
 }
 
-pub async fn pre_flight_network_test(
+pub async fn pre_flight_setup(
     config: &Config,
 ) -> (HashMap<String, String>, Vec<ComponentResponse>, StatusPage) {
     let bar = ProgressBar::new(2).with_style(
