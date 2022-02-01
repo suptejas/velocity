@@ -5,7 +5,7 @@ use owo_colors::OwoColorize;
 
 use crate::{
     config::{Config, MonitorType},
-    instatus::{ComponentResponse, Metric, StatusPage},
+    velocity::{ComponentResponse, Metric, StatusPage},
 };
 
 pub async fn fetch_metrics(

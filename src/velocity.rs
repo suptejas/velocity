@@ -196,10 +196,10 @@ pub async fn monitor(
                                 name.bright_green()
                             );
 
-                            // TODO: if this is in the list of active incidents and the monitoring time has elapsed, change it to resolved again
                             for incident in active_incidents.iter() {
                                 if incident.status == "MONITORING" {
                                     if monitoring_elapsed[&incident.id] == 0 {
+                                        let start = Instant::now();
                                         set_incident_status(
                                             client.clone(),
                                             page.id.clone(),
@@ -208,7 +208,14 @@ pub async fn monitor(
                                         )
                                         .await;
 
-                                        println!("✅  {} marked as resolved", name.bright_green());
+                                        println!(
+                                            "{}  {}{}✅  {} marked as resolved",
+                                            time.format("%H:%M:%S").bright_yellow(),
+                                            format!("{} ms", start.elapsed().as_secs_f32())
+                                                .bright_black(),
+                                            spacing,
+                                            name.bright_green()
+                                        );
                                     } else {
                                         *monitoring_elapsed.get_mut(&incident.id).unwrap() -= 1;
                                     }
@@ -217,7 +224,7 @@ pub async fn monitor(
                                     if incident.status.as_str() == "IDENTIFIED" {
                                         monitoring_elapsed.insert(
                                             incident.id.clone(),
-                                            config.incident_monitoring_time.unwrap(),
+                                            config.incident_monitoring_threshold.unwrap(),
                                         );
 
                                         set_incident_status(

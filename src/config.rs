@@ -24,7 +24,7 @@ pub struct Config {
     /// incident monitoring time, in number of requests
     /// when the number of requests specified above have been satisfied, we will mark the incident as resolved
     /// default: 60
-    pub incident_monitoring_time: Option<u64>,
+    pub incident_monitoring_threshold: Option<u64>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -59,8 +59,8 @@ impl Config {
             config.max_connection_timeout = Some(30);
         }
 
-        if config.incident_monitoring_time.is_none() {
-            config.incident_monitoring_time = Some(60);
+        if config.incident_monitoring_threshold.is_none() {
+            config.incident_monitoring_threshold = Some(60);
         }
 
         config

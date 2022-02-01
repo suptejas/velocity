@@ -4,11 +4,22 @@ use config::Config;
 use owo_colors::OwoColorize;
 use surf::Client;
 
+use tracing::Level;
+use tracing_subscriber::EnvFilter;
+
 pub mod config;
-pub mod instatus;
 pub mod net;
+pub mod velocity;
 
 fn main() {
+    tracing_subscriber::fmt()
+        .with_max_level(Level::TRACE)
+        .with_env_filter(
+            EnvFilter::try_from_env("LOG_LEVEL").unwrap_or_else(|_| EnvFilter::default()),
+        )
+        .without_time()
+        .init();
+
     smol::block_on(async {
         println!(
             "📖 Reading configuration variables from {}",
@@ -34,6 +45,6 @@ fn main() {
                 std::process::exit(1);
             });
 
-        instatus::monitor(page, components, metrics, client, config).await;
+        velocity::monitor(page, components, metrics, client, config).await;
     });
 }
