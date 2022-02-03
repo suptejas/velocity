@@ -17,3 +17,9 @@ futures = "0.3.19"
 tokio = { version = "1.15.0", features = ["full"] }
 tracing-subscriber = { version = "0.3.7", features = ["env-filter"] }
 tracing = "0.1.29"
+
+[profile.release-optimized]
+inherits = "release"
+opt-level = 3
+lto = "fat"
+codegen-units = 1    # Reduce number of codegen units to increase optimizations.
