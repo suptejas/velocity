@@ -1,10 +1,11 @@
 use std::{collections::HashMap, fs::File, io::Read, path::Path};
 
+use owo_colors::OwoColorize;
 use serde::{Deserialize, Serialize};
 
 /// Manages configuration variables
 /// All configuration details are specified in `velocity.toml`
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Config {
     /// name of the status page
@@ -27,7 +28,7 @@ pub struct Config {
     pub incident_monitoring_threshold: Option<u64>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Monitor {
     pub url: String,
@@ -35,7 +36,7 @@ pub struct Monitor {
     pub type_: MonitorType,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub enum MonitorType {
     Uptime,
@@ -44,16 +45,22 @@ pub enum MonitorType {
 
 impl Config {
     pub fn from_file<P: AsRef<Path>>(path: P) -> Self {
-        let mut file = File::open(path).unwrap_or_else(|error| {
-            eprintln!("💥 failed to read config file: {}", error);
+        let mut file = File::open(path).unwrap_or_else(|err| {
+            eprintln!("\n💥 failed to open config file: {}", err.bright_yellow());
             std::process::exit(1);
         });
 
         let mut contents = String::new();
 
-        file.read_to_string(&mut contents).unwrap();
+        file.read_to_string(&mut contents).unwrap_or_else(|err| {
+            eprintln!("\n💥 failed to read config file: {}", err.bright_yellow());
+            std::process::exit(1);
+        });
 
-        let mut config = serde_json::from_str::<Config>(&contents).unwrap();
+        let mut config = serde_json::from_str::<Config>(&contents).unwrap_or_else(|err| {
+            eprintln!("\n💥 invalid configuration file: {}\n\nTo learn more about velocity configuration see https://hydralite.io/velocity/docs/configuration", err.bright_yellow());
+            std::process::exit(1);
+        });
 
         if config.max_connection_timeout.is_none() {
             config.max_connection_timeout = Some(30);

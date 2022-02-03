@@ -40,7 +40,7 @@ fn main() {
             )))
             .try_into()
             .unwrap_or_else(|err| {
-                eprintln!("💥 failed to initialise network client: {}", err);
+                eprintln!("\n💥 failed to initialise network client: {}", err);
 
                 std::process::exit(1);
             });

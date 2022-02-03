@@ -18,8 +18,8 @@ pub async fn fetch_metrics(
         .header("Authorization", format!("Bearer {}", api_key))
         .recv_json()
         .await
-        .unwrap_or_else(|error| {
-            bar.abandon_with_message(format!("💥 could not connect to Instatus API: {}", error));
+        .unwrap_or_else(|err| {
+            bar.abandon_with_message(format!("💥 could not connect to Instatus API: {}", err));
 
             exit(1);
         });
@@ -43,7 +43,14 @@ pub async fn fetch_components(page_id: &str, api_key: &str) -> Vec<ComponentResp
     .header("Authorization", format!("Bearer {}", api_key))
     .recv_json::<Vec<ComponentResponse>>()
     .await
-    .unwrap()
+    .unwrap_or_else(|err| {
+        eprintln!(
+            "\n💥 failed to fetch components from Instatus API: {}",
+            err.bright_yellow()
+        );
+
+        std::process::exit(1);
+    })
 }
 
 pub async fn pre_flight_setup(
@@ -65,8 +72,8 @@ pub async fn pre_flight_setup(
         .header("Authorization", format!("Bearer {}", config.api_key))
         .recv_json()
         .await
-        .unwrap_or_else(|error| {
-            bar.abandon_with_message(format!("💥 could not connect to Instatus API: {}", error));
+        .unwrap_or_else(|err| {
+            bar.abandon_with_message(format!("💥 could not connect to Instatus API: {}", err));
 
             exit(1);
         });
